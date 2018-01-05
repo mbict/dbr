@@ -11,9 +11,9 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/gocraft/dbr/dialect"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/mbict/dbr/dialect"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -168,7 +168,7 @@ func TestBasicCRUD(t *testing.T) {
 		assert.True(t, jonathan.Id > 0)
 		// select
 		var people []dbrPerson
-		count, err := sess.Select("*").From("dbr_people").Where(Eq("id", jonathan.Id)).LoadStructs(&people)
+		count, err := sess.Select("*").From("dbr_people").Where(Eq("id", jonathan.Id)).Load(&people)
 		assert.NoError(t, err)
 		if assert.Equal(t, 1, count) {
 			assert.Equal(t, jonathan.Id, people[0].Id)
@@ -195,7 +195,7 @@ func TestBasicCRUD(t *testing.T) {
 		assert.EqualValues(t, 1, rowsAffected)
 
 		var n NullInt64
-		sess.Select("count(*)").From("dbr_people").Where("name = ?", "jonathan1").LoadValue(&n)
+		sess.Select("count(*)").From("dbr_people").Where("name = ?", "jonathan1").LoadOne(&n)
 		assert.EqualValues(t, 1, n.Int64)
 
 		// delete
@@ -274,5 +274,43 @@ func TestTimeout(t *testing.T) {
 		time.Sleep(2 * time.Second)
 		err = tx.Commit()
 		assert.EqualValues(t, sql.ErrTxDone, err)
+	}
+}
+
+type stringSliceWithSqlScanner []string
+
+func (ss *stringSliceWithSqlScanner) Scan(src interface{}) error {
+	*ss = append(*ss, "called")
+	return nil
+}
+
+func TestSliceWithSQLScannerSelect(t *testing.T) {
+	for _, sess := range []*Session{
+		createSession("mysql", mysqlDSN),
+		createSession("postgres", postgresDSN),
+		createSession("sqlite3", sqlite3DSN),
+	} {
+		_, err := sess.InsertInto("dbr_people").
+			Columns("name", "email").
+			Values("test1", "test1@test.com").
+			Values("test2", "test2@test.com").
+			Values("test3", "test3@test.com").
+			Exec()
+
+		//plain string slice (original behavour)
+		var stringSlice []string
+		cnt, err := sess.Select("name").From("dbr_people").Load(&stringSlice)
+
+		assert.NoError(t, err)
+		assert.Equal(t, cnt, 3)
+		assert.Len(t, stringSlice, 3)
+
+		//string slice with sql.Scanner implemented, should act as a single record
+		var sliceScanner stringSliceWithSqlScanner
+		cnt, err = sess.Select("name").From("dbr_people").Load(&sliceScanner)
+
+		assert.NoError(t, err)
+		assert.Equal(t, cnt, 1)
+		assert.Len(t, sliceScanner, 1)
 	}
 }

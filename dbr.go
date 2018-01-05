@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gocraft/dbr/dialect"
+	"github.com/mbict/dbr/dialect"
 )
 
 // Open instantiates a Connection for a given database/sql connection
@@ -171,4 +171,42 @@ func query(ctx context.Context, runner runner, log EventReceiver, builder Builde
 		})
 	}
 	return count, nil
+}
+
+func queryRows(ctx context.Context, runner runner, log EventReceiver, builder Builder, d Dialect) (*sql.Rows, error) {
+	timeout := runner.GetTimeout()
+	if timeout > 0 {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	i := interpolator{
+		Buffer:       NewBuffer(),
+		Dialect:      d,
+		IgnoreBinary: true,
+	}
+	err := i.interpolate(placeholder, []interface{}{builder})
+	query, value := i.String(), i.Value()
+	if err != nil {
+		return nil, log.EventErrKv("dbr.select.interpolate", err, kvs{
+			"sql":  query,
+			"args": fmt.Sprint(value),
+		})
+	}
+
+	startTime := time.Now()
+	defer func() {
+		log.TimingKv("dbr.select", time.Since(startTime).Nanoseconds(), kvs{
+			"sql": query,
+		})
+	}()
+
+	rows, err := runner.QueryContext(ctx, query, value...)
+	if err != nil {
+		return nil, log.EventErrKv("dbr.select.query", err, kvs{
+			"sql": query,
+		})
+	}
+	return rows, err
 }

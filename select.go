@@ -23,7 +23,7 @@ type SelectStmt struct {
 
 // Build builds `SELECT ...` in dialect
 func (b *SelectStmt) Build(d Dialect, buf Buffer) error {
-	if b.raw.Query != "" {
+	if b.raw.query != "" {
 		return b.raw.Build(d, buf)
 	}
 
@@ -144,8 +144,8 @@ func (b *SelectStmt) From(table interface{}) *SelectStmt {
 func SelectBySql(query string, value ...interface{}) *SelectStmt {
 	return &SelectStmt{
 		raw: raw{
-			Query: query,
-			Value: value,
+			query: query,
+			value: value,
 		},
 		LimitCount:  -1,
 		OffsetCount: -1,

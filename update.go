@@ -12,7 +12,7 @@ type UpdateStmt struct {
 
 // Build builds `UPDATE ...` in dialect
 func (b *UpdateStmt) Build(d Dialect, buf Buffer) error {
-	if b.raw.Query != "" {
+	if b.raw.query != "" {
 		return b.raw.Build(d, buf)
 	}
 
@@ -63,8 +63,8 @@ func Update(table string) *UpdateStmt {
 func UpdateBySql(query string, value ...interface{}) *UpdateStmt {
 	return &UpdateStmt{
 		raw: raw{
-			Query: query,
-			Value: value,
+			query: query,
+			value: value,
 		},
 		Value: make(map[string]interface{}),
 	}
