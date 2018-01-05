@@ -11,7 +11,7 @@ type DeleteStmt struct {
 
 // Build builds `DELETE ...` in dialect
 func (b *DeleteStmt) Build(d Dialect, buf Buffer) error {
-	if b.raw.Query != "" {
+	if b.raw.query != "" {
 		return b.raw.Build(d, buf)
 	}
 
@@ -43,8 +43,8 @@ func DeleteFrom(table string) *DeleteStmt {
 func DeleteBySql(query string, value ...interface{}) *DeleteStmt {
 	return &DeleteStmt{
 		raw: raw{
-			Query: query,
-			Value: value,
+			query: query,
+			value: value,
 		},
 	}
 }

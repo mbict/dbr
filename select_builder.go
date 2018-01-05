@@ -1,11 +1,14 @@
 package dbr
 
-import "context"
+import (
+	"context"
+	"database/sql"
+)
 
 type SelectBuilder struct {
-	runner
-	EventReceiver
-	Dialect Dialect
+	runner        runner
+	eventReceiver EventReceiver
+	Dialect       Dialect
 
 	*SelectStmt
 }
@@ -21,7 +24,7 @@ func prepareSelect(a []string) []interface{} {
 func (sess *Session) Select(column ...string) *SelectBuilder {
 	return &SelectBuilder{
 		runner:        sess,
-		EventReceiver: sess,
+		eventReceiver: sess.EventReceiver,
 		Dialect:       sess.Dialect,
 		SelectStmt:    Select(prepareSelect(column)...),
 	}
@@ -30,7 +33,7 @@ func (sess *Session) Select(column ...string) *SelectBuilder {
 func (tx *Tx) Select(column ...string) *SelectBuilder {
 	return &SelectBuilder{
 		runner:        tx,
-		EventReceiver: tx,
+		eventReceiver: tx.EventReceiver,
 		Dialect:       tx.Dialect,
 		SelectStmt:    Select(prepareSelect(column)...),
 	}
@@ -39,7 +42,7 @@ func (tx *Tx) Select(column ...string) *SelectBuilder {
 func (sess *Session) SelectBySql(query string, value ...interface{}) *SelectBuilder {
 	return &SelectBuilder{
 		runner:        sess,
-		EventReceiver: sess,
+		eventReceiver: sess.EventReceiver,
 		Dialect:       sess.Dialect,
 		SelectStmt:    SelectBySql(query, value...),
 	}
@@ -48,34 +51,14 @@ func (sess *Session) SelectBySql(query string, value ...interface{}) *SelectBuil
 func (tx *Tx) SelectBySql(query string, value ...interface{}) *SelectBuilder {
 	return &SelectBuilder{
 		runner:        tx,
-		EventReceiver: tx,
+		eventReceiver: tx.EventReceiver,
 		Dialect:       tx.Dialect,
 		SelectStmt:    SelectBySql(query, value...),
 	}
 }
 
-// DEPRECATED: use LoadOne instead
-func (b *SelectBuilder) LoadStruct(value interface{}) error {
-	return b.LoadOne(value)
-}
-
-// DEPRECATED: use Load instead
-func (b *SelectBuilder) LoadStructs(value interface{}) (int, error) {
-	return b.Load(value)
-}
-
-// DEPRECATED: use LoadOne instead
-func (b *SelectBuilder) LoadValue(value interface{}) error {
-	return b.LoadOne(value)
-}
-
-// DEPRECATED: use Load instead
-func (b *SelectBuilder) LoadValues(value interface{}) (int, error) {
-	return b.Load(value)
-}
-
 func (b *SelectBuilder) LoadOneContext(ctx context.Context, value interface{}) error {
-	count, err := query(ctx, b.runner, b.EventReceiver, b, b.Dialect, value)
+	count, err := query(ctx, b.runner, b.eventReceiver, b, b.Dialect, value)
 	if err != nil {
 		return err
 	}
@@ -90,11 +73,19 @@ func (b *SelectBuilder) LoadOne(value interface{}) error {
 }
 
 func (b *SelectBuilder) LoadContext(ctx context.Context, value interface{}) (int, error) {
-	return query(ctx, b.runner, b.EventReceiver, b, b.Dialect, value)
+	return query(ctx, b.runner, b.eventReceiver, b, b.Dialect, value)
 }
 
 func (b *SelectBuilder) Load(value interface{}) (int, error) {
 	return b.LoadContext(context.Background(), value)
+}
+
+func (b *SelectBuilder) QueryContext(ctx context.Context) (*sql.Rows, error) {
+	return queryRows(ctx, b.runner, b.eventReceiver, b, b.Dialect)
+}
+
+func (b *SelectBuilder) Query() (*sql.Rows, error) {
+	return b.QueryContext(context.Background())
 }
 
 func (b *SelectBuilder) Join(table, on interface{}) *SelectBuilder {
@@ -153,6 +144,17 @@ func (b *SelectBuilder) OrderDir(col string, isAsc bool) *SelectBuilder {
 	} else {
 		b.SelectStmt.OrderDesc(col)
 	}
+	return b
+}
+
+// OrderBy specifies columns for ordering
+func (b *SelectBuilder) OrderAsc(col string) *SelectBuilder {
+	b.OrderDir(col, true)
+	return b
+}
+
+func (b *SelectBuilder) OrderDesc(col string) *SelectBuilder {
+	b.OrderDir(col, false)
 	return b
 }
 

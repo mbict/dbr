@@ -33,7 +33,7 @@ type NullTime struct {
 	Valid bool // Valid is true if Time is not NULL
 }
 
-// Value implements the driver Valuer interface.
+// value implements the driver Valuer interface.
 func (n NullTime) Value() (driver.Value, error) {
 	if !n.Valid {
 		return nil, nil

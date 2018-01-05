@@ -11,9 +11,9 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/gocraft/dbr/dialect"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/mbict/dbr/dialect"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -168,7 +168,7 @@ func TestBasicCRUD(t *testing.T) {
 		assert.True(t, jonathan.Id > 0)
 		// select
 		var people []dbrPerson
-		count, err := sess.Select("*").From("dbr_people").Where(Eq("id", jonathan.Id)).LoadStructs(&people)
+		count, err := sess.Select("*").From("dbr_people").Where(Eq("id", jonathan.Id)).Load(&people)
 		assert.NoError(t, err)
 		if assert.Equal(t, 1, count) {
 			assert.Equal(t, jonathan.Id, people[0].Id)
@@ -195,7 +195,7 @@ func TestBasicCRUD(t *testing.T) {
 		assert.EqualValues(t, 1, rowsAffected)
 
 		var n NullInt64
-		sess.Select("count(*)").From("dbr_people").Where("name = ?", "jonathan1").LoadValue(&n)
+		sess.Select("count(*)").From("dbr_people").Where("name = ?", "jonathan1").LoadOne(&n)
 		assert.EqualValues(t, 1, n.Int64)
 
 		// delete

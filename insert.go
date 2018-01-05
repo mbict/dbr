@@ -17,7 +17,7 @@ type InsertStmt struct {
 
 // Build builds `INSERT INTO ...` in dialect
 func (b *InsertStmt) Build(d Dialect, buf Buffer) error {
-	if b.raw.Query != "" {
+	if b.raw.query != "" {
 		return b.raw.Build(d, buf)
 	}
 
@@ -80,8 +80,8 @@ func InsertInto(table string) *InsertStmt {
 func InsertBySql(query string, value ...interface{}) *InsertStmt {
 	return &InsertStmt{
 		raw: raw{
-			Query: query,
-			Value: value,
+			query: query,
+			value: value,
 		},
 	}
 }
