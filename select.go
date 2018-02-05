@@ -236,3 +236,26 @@ func (b *SelectStmt) FullJoin(table, on interface{}) *SelectStmt {
 func (b *SelectStmt) As(alias string) Builder {
 	return as(b, alias)
 }
+
+// Select create a copy of the select statement with altered columns
+func (b *SelectStmt) Select(column ...interface{}) *SelectStmt {
+	copyBuilder := func(a []Builder) []Builder {
+		b := make([]Builder, len(a))
+		copy(b, a)
+		return b
+	}
+
+	return &SelectStmt{
+		raw:         raw{},
+		IsDistinct:  b.IsDistinct,
+		Column:      column,
+		Table:       b.Table,
+		JoinTable:   copyBuilder(b.JoinTable),
+		WhereCond:   copyBuilder(b.WhereCond),
+		Group:       copyBuilder(b.Group),
+		HavingCond:  copyBuilder(b.HavingCond),
+		Order:       copyBuilder(b.Order),
+		LimitCount:  b.LimitCount,
+		OffsetCount: b.OffsetCount,
+	}
+}
