@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"reflect"
+	"github.com/mbict/dbr/dialect"
 )
 
 type InsertBuilder struct {
@@ -82,6 +83,37 @@ func (b *InsertBuilder) ExecContext(ctx context.Context) (sql.Result, error) {
 	}
 
 	return result, nil
+}
+
+func (b *InsertBuilder) ExecId() (int64, error) {
+	return b.ExecContextId(context.Background())
+}
+
+func (b *InsertBuilder) ExecContextId(ctx context.Context) (int64, error) {
+	var (
+		id  int64
+		err error
+	)
+	switch b.Dialect {
+	case dialect.PostgreSQL:
+		err = b.Returning("id").LoadContext(ctx, &id)
+	default:
+		b.InsertStmt.Returning()
+		r, err := b.ExecContext(ctx)
+		if err == nil {
+			id, err = r.LastInsertId()
+		}
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	if b.RecordID.IsValid() {
+		b.RecordID.SetInt(id)
+	}
+
+	return id, nil
 }
 
 func (b *InsertBuilder) LoadContext(ctx context.Context, value interface{}) error {
