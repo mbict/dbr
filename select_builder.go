@@ -88,6 +88,28 @@ func (b *SelectBuilder) Query() (*sql.Rows, error) {
 	return b.QueryContext(context.Background())
 }
 
+func (b *SelectBuilder) CountContext(ctx context.Context) (uint64, error) {
+	builder := b.Select("COUNT(*)")
+	builder.LimitCount = -1
+	builder.OffsetCount = -1
+	var count uint64
+	_, err := query(ctx, b.runner, b.eventReceiver, builder, b.Dialect, &count)
+	return count, err
+}
+
+func (b *SelectBuilder) Count() (uint64, error) {
+	return b.CountContext(context.Background())
+}
+
+func (b *SelectBuilder) Select(column ...string) *SelectBuilder {
+	return &SelectBuilder{
+		runner:        b.runner,
+		eventReceiver: b.eventReceiver,
+		Dialect:       b.Dialect,
+		SelectStmt:    b.SelectStmt.Select(prepareSelect(column)...),
+	}
+}
+
 func (b *SelectBuilder) Join(table, on interface{}) *SelectBuilder {
 	b.SelectStmt.Join(table, on)
 	return b
