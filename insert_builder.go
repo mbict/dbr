@@ -141,7 +141,7 @@ func (b *InsertBuilder) Record(structValue interface{}) *InsertBuilder {
 		// ID is recommended by golint here
 		for _, name := range []string{"Id", "ID"} {
 			field := v.FieldByName(name)
-			if field.IsValid() && field.Kind() == reflect.Int64 {
+			if field.IsValid() && (field.Kind() == reflect.Int64 || field.Kind() == reflect.Int) {
 				b.RecordID = field
 				break
 			}
