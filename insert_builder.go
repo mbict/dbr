@@ -100,9 +100,10 @@ func (b *InsertBuilder) ExecContextId(ctx context.Context) (int64, error) {
 	default:
 		b.InsertStmt.Returning()
 		r, err := b.ExecContext(ctx)
-		if err == nil {
-			id, err = r.LastInsertId()
+		if err != nil {
+			return 0, err
 		}
+		id, err = r.LastInsertId()
 	}
 
 	if err != nil {
