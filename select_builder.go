@@ -88,6 +88,15 @@ func (b *SelectBuilder) Query() (*sql.Rows, error) {
 	return b.QueryContext(context.Background())
 }
 
+func (b *SelectBuilder) QueryRow() (*sql.Row, error) {
+	return b.QueryRowContext(context.Background())
+}
+
+func (b *SelectBuilder) QueryRowContext(ctx context.Context) (*sql.Row, error) {
+	b = b.Select().Limit(1)
+	return queryRow(ctx, b.runner, b.eventReceiver, b, b.Dialect)
+}
+
 func (b *SelectBuilder) CountContext(ctx context.Context) (uint64, error) {
 	builder := b.Select("COUNT(*)")
 	builder.LimitCount = -1
@@ -102,11 +111,16 @@ func (b *SelectBuilder) Count() (uint64, error) {
 }
 
 func (b *SelectBuilder) Select(column ...string) *SelectBuilder {
+	columns := b.SelectStmt.Column
+	if len(column) > 0 {
+		columns = prepareSelect(column)
+	}
+
 	return &SelectBuilder{
 		runner:        b.runner,
 		eventReceiver: b.eventReceiver,
 		Dialect:       b.Dialect,
-		SelectStmt:    b.SelectStmt.Select(prepareSelect(column)...),
+		SelectStmt:    b.SelectStmt.Select(columns...),
 	}
 }
 

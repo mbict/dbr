@@ -89,6 +89,7 @@ type runner interface {
 	GetTimeout() time.Duration
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
 func exec(ctx context.Context, runner runner, log EventReceiver, builder Builder, d Dialect) (sql.Result, error) {
@@ -209,4 +210,36 @@ func queryRows(ctx context.Context, runner runner, log EventReceiver, builder Bu
 		})
 	}
 	return rows, err
+}
+
+func queryRow(ctx context.Context, runner runner, log EventReceiver, builder Builder, d Dialect) (*sql.Row, error) {
+	timeout := runner.GetTimeout()
+	if timeout > 0 {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	i := interpolator{
+		Buffer:       NewBuffer(),
+		Dialect:      d,
+		IgnoreBinary: true,
+	}
+	err := i.interpolate(placeholder, []interface{}{builder})
+	query, value := i.String(), i.Value()
+	if err != nil {
+		return nil, log.EventErrKv("dbr.select.interpolate", err, kvs{
+			"sql":  query,
+			"args": fmt.Sprint(value),
+		})
+	}
+
+	startTime := time.Now()
+	defer func() {
+		log.TimingKv("dbr.select", time.Since(startTime).Nanoseconds(), kvs{
+			"sql": query,
+		})
+	}()
+
+	return runner.QueryRowContext(ctx, query, value...), nil
 }
