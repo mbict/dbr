@@ -228,6 +228,38 @@ func (tx *Tx) SelectBySql(query string, value ...interface{}) *SelectStmt {
 	return b
 }
 
+// Select clones the current select statement and assigns the new columns
+func (b *SelectStmt) Select(column ...interface{}) *SelectStmt {
+	if len(column) == 0 {
+		column = b.Column
+	}
+
+	copyBuilder := func(a []Builder) []Builder {
+		b := make([]Builder, len(a))
+		copy(b, a)
+		return b
+	}
+
+	return &SelectStmt{
+		runner:        b.runner,
+		EventReceiver: b.EventReceiver,
+		Dialect:       b.Dialect,
+		raw:           raw{},
+		IsDistinct:    b.IsDistinct,
+		Column:        column,
+		Table:         b.Table,
+		JoinTable:     copyBuilder(b.JoinTable),
+		WhereCond:     copyBuilder(b.WhereCond),
+		Group:         copyBuilder(b.Group),
+		HavingCond:    copyBuilder(b.HavingCond),
+		Order:         copyBuilder(b.Order),
+		Suffixes:      copyBuilder(b.Suffixes),
+		LimitCount:    b.LimitCount,
+		OffsetCount:   b.OffsetCount,
+		comments:      b.comments,
+	}
+}
+
 // From specifies table to select from.
 // table can be Builder like SelectStmt, or string.
 func (b *SelectStmt) From(table interface{}) *SelectStmt {
@@ -367,6 +399,16 @@ func (b *SelectStmt) Rows() (*sql.Rows, error) {
 func (b *SelectStmt) RowsContext(ctx context.Context) (*sql.Rows, error) {
 	_, rows, err := queryRows(ctx, b.runner, b.EventReceiver, b, b.Dialect)
 	return rows, err
+}
+
+func (b *SelectStmt) Row() (*sql.Row, error) {
+	return b.RowContext(context.Background())
+}
+
+func (b *SelectStmt) RowContext(ctx context.Context) (*sql.Row, error) {
+	b = b.Select().Limit(1)
+	_, row, err := queryRow(ctx, b.runner, b.EventReceiver, b, b.Dialect)
+	return row, err
 }
 
 func (b *SelectStmt) LoadOneContext(ctx context.Context, value interface{}) error {

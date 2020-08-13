@@ -101,6 +101,7 @@ type runner interface {
 	GetTimeout() time.Duration
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
 func exec(ctx context.Context, runner runner, log EventReceiver, builder Builder, d Dialect) (sql.Result, error) {
@@ -192,6 +193,47 @@ func queryRows(ctx context.Context, runner runner, log EventReceiver, builder Bu
 	}
 
 	return query, rows, nil
+}
+
+func queryRow(ctx context.Context, runner runner, log EventReceiver, builder Builder, d Dialect) (string, *sql.Row, error) {
+	i := interpolator{
+		Buffer:       NewBuffer(),
+		Dialect:      d,
+		IgnoreBinary: true,
+	}
+	err := i.encodePlaceholder(builder, true)
+	query, value := i.String(), i.Value()
+	if err != nil {
+		return query, nil, log.EventErrKv("dbr.select.row.interpolate", err, kvs{
+			"sql":  query,
+			"args": fmt.Sprint(value),
+		})
+	}
+
+	startTime := time.Now()
+	defer func() {
+		log.TimingKv("dbr.select.row", time.Since(startTime).Nanoseconds(), kvs{
+			"sql": query,
+		})
+	}()
+
+	traceImpl, hasTracingImpl := log.(TracingEventReceiver)
+	if hasTracingImpl {
+		ctx = traceImpl.SpanStart(ctx, "dbr.select.row", query)
+		defer traceImpl.SpanFinish(ctx)
+	}
+
+	row := runner.QueryRowContext(ctx, query, value...)
+	if err != nil {
+		if hasTracingImpl {
+			traceImpl.SpanError(ctx, err)
+		}
+		return query, nil, log.EventErrKv("dbr.select.row.load.query", err, kvs{
+			"sql": query,
+		})
+	}
+
+	return query, row, nil
 }
 
 func query(ctx context.Context, runner runner, log EventReceiver, builder Builder, d Dialect, dest interface{}) (int, error) {
