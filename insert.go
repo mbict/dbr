@@ -189,7 +189,7 @@ func (b *InsertStmt) Record(structValue interface{}) *InsertStmt {
 		if v.CanSet() {
 			switch idField := found[len(found)-1].(type) {
 			case reflect.Value:
-				if idField.Kind() == reflect.Int64 {
+				if idField.Kind() == reflect.Int64 || idField.Kind() == reflect.Int {
 					b.RecordID = idField.Addr().Interface().(*int64)
 				}
 			}
