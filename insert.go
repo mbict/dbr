@@ -3,6 +3,7 @@ package dbr
 import (
 	"context"
 	"database/sql"
+	"github.com/gocraft/dbr/v2/dialect"
 	"reflect"
 	"strings"
 )
@@ -238,6 +239,35 @@ func (b *InsertStmt) ExecContext(ctx context.Context) (sql.Result, error) {
 	}
 
 	return result, nil
+}
+
+func (b *InsertStmt) ExecId() (int64, error) {
+	return b.ExecContextId(context.Background())
+}
+
+func (b *InsertStmt) ExecContextId(ctx context.Context) (int64, error) {
+	var (
+		id  int64
+		err error
+	)
+	switch b.Dialect {
+	case dialect.PostgreSQL:
+		err = b.Returning("id").LoadContext(ctx, &id)
+	default:
+		b.Returning()
+		r, err := b.ExecContext(ctx)
+		if err != nil {
+			return 0, err
+		}
+		id, err = r.LastInsertId()
+	}
+
+	if err != nil {
+		return 0, err
+	}
+	b.RecordID = &id
+
+	return id, nil
 }
 
 func (b *InsertStmt) LoadContext(ctx context.Context, value interface{}) error {
